@@ -356,14 +356,16 @@ export const methods = {
    * @param {Array} retrialTargets - An array with the details of which
    * methods for getting shipping methods failed in the most recent
    * query of Shippo's API.
+   * @param {String} shopId - The shop that rates will genererated for
    * @return {Array} errorDetailsAndRetryInfo - Details of any error that
    * occurred while querying Shippo's API, and info about this package so
    * as to know if this specific query is to be retried.
    * @return {Array} rates - The rates of the enabled and available
    * Shippo carriers, and an empty array.
    */
-  "shippo/getShippingRatesForCart"(cartId, shippoDocs, retrialTargets) {
+  "shippo/getShippingRatesForCart"(cartId, shopId, shippoDocs, retrialTargets) {
     check(cartId, String);
+    check(shopId, String);
     check(shippoDocs, Object);
     check(retrialTargets, Array);
 
@@ -389,14 +391,45 @@ export const methods = {
       isRetry = true;
     }
 
+
     const cart = Cart.findOne(cartId);
     if (cart && cart.userId === this.userId) { // confirm user has the right
+      if (!cart.items || !cart.items.length) {
+        errorDetails.message = "This cart has no items";
+        return [[errorDetails], []];
+      }
+
+      const shopItems = cart.items.filter( item => item.shopId === shopId);
+
+      if (!shopItems.length) {
+        errorDetails.message = `This cart has no items of shop ${shopId}.`;
+        return [[errorDetails], []];
+      }
+
+      // Todo: This approach is a little bit naive, as it searches for the biggest-volumed parcel of the items
+      // and use this for all the items. A better approach could be to have a list of the available default
+      // parcel-boxes of each seller and create a logic to put items in the least possible parcels.
+      const biggestAvailableParcel =  shopItems.reduce((prev, current) => {
+        const parcel = current.parcel;
+        if (!parcel) {
+          return prev;
+        }
+        const volume = (parcel.width * parcel.height * parcel.length);
+        return (prev.volume > volume) ? prev : Object.assign({}, parcel, {volume});
+      },{ volume:0 });
+
+      if (biggestAvailableParcel.volume  === 0) {
+        errorDetails.message = `This cart has not a parcel for items of shop ${shopId}.`;
+        return [[errorDetails], []];
+      }
+      delete biggestAvailableParcel.volume;
+
       let shippoAddressTo;
       let shippoParcel;
       const purpose = "PURCHASE";
 
       const shop = Shops.findOne({
-        _id: cart.shopId
+        _id: shopId
       }, {
         field: {
           addressBook: 1,
@@ -410,21 +443,16 @@ export const methods = {
       if (!apiKey) {
         // In this case, and some similar ones below, there's no need
         // for a retry.
-        errorDetails.message = "No Shippo API key was found in this cart.";
+        errorDetails.message = "No Shippo API key was found for this cart.";
         return [[errorDetails], []];
       }
       // TODO create a shipping address book record for shop.
       const shippoAddressFrom = createShippoAddress(shop.addressBook[0], shop.emails[0].address, purpose);
       // product in the cart has to have parcel property with the dimensions
-      if (cart.items && cart.items[0] && cart.items[0].parcel) {
-        const unitOfMeasure = shop && shop.baseUOM || "kg";
-        const unitOfLength = shop && shop.baseUOL || "cm";
-        const cartWeight = getTotalCartweight(cart);
-        shippoParcel = createShippoParcel(cart.items[0].parcel, cartWeight, unitOfMeasure, unitOfLength);
-      } else {
-        errorDetails.message = "This cart has no items, or the first item has no 'parcel' property.";
-        return [[errorDetails], []];
-      }
+      const unitOfMeasure = shop && shop.baseUOM || "kg";
+      const unitOfLength = shop && shop.baseUOL || "cm";
+      const cartWeight = getTotalCartweight(cart);
+      shippoParcel = createShippoParcel(biggestAvailableParcel, cartWeight, unitOfMeasure, unitOfLength);
 
       const buyer = Accounts.findOne({
         _id: this.userId
@@ -501,40 +529,51 @@ export const methods = {
    * Confirms Shippo order based on buyer's choice at the time of purchase
    * and supplies the order doc with the tracking and label infos
    * @param {String} orderId - The id of the ordered that labels are purchased for
+   * @param {String} shopId - the id of the shop confirming the shippingMethod
    * @return {Boolean} result - True if procedure completed succesfully,otherwise false
+   * @todo As the goal is multiple shipments ,from the same shop, to be able to exist in an
+   * order(e.g Seller sends item1 with
+   * dhl-standard , item2 with dhl-prority an extra parameter could exist: shippingId
    */
-  "shippo/confirmShippingMethodForOrder"(orderId) {
+  "shippo/confirmShippingMethodForOrder"(orderId, shopId) {
     check(orderId, String);
+    check(shopId, String);
     const order = Orders.findOne(orderId);
-    // Make sure user has permissions in the shop's order
-    if (Roles.userIsInRole(this.userId, shippingRoles, order.shopId)) {
-      const orderShipment = order.shipping[0];
-      // Here we done it for the first/unique Shipment only . in the near future it will be done for multiple ones
-      if (orderShipment && orderShipment.shipmentMethod && orderShipment.shipmentMethod.settings && orderShipment.shipmentMethod.settings.rateId) {
-        const apiKey = getApiKey(order.shopId);
-        // If for a weird reason Shop hasn't a Shippo Api key anymore you have to throw an error
-        // cause the Shippo label purchasing is not gonna happen.
-        if (!apiKey) {
-          throw new Meteor.Error("403", "Invalid Shippo Credentials");
-        }
-        const rateId = orderShipment.shipmentMethod.settings.rateId;
-        // make the actual purchase
-        const transaction = ShippoApi.methods.createTransaction.call({ rateId, apiKey });
-        if (transaction) {
-          return Orders.update({
-            _id: orderId
-          }, {
-            $set: {
-              "shipping.0.shippingLabelUrl": transaction.label_url,
-              "shipping.0.tracking": transaction.tracking_number,
-              "shipping.0.shippo.transactionId": transaction.object_id,
-              "shipping.0.shippo.trackingStatusDate": null,
-              "shipping.0.shippo.trackingStatusStatus": null
-            }
-          });
-        }
-      }
+
+    if (!Reaction.hasPermission(shippingRoles, this.userId, shopId)) {
+      throw new Meteor.Error("access-denied", "Access Denied");
     }
+    const shipping = order.shipping.find(shippingRec => (
+      shippingRec.shopId === shopId &&
+      shippingRec.shipmentMethod.settings &&
+      shippingRec.shipmentMethod.settings.rateId
+    ));
+    if (!shipping) {
+      throw new Meteor.Error("not-found", "Not found valid shipping method");
+    }
+
+    const apiKey = getApiKey(order.shopId);
+    if (!apiKey) {
+      throw new Meteor.Error("invalid-credentials", "Invalid Credentials");
+    }
+
+    const rateId = shipping.shipmentMethod.settings.rateId;
+    // make the actual purchase
+    const transaction = ShippoApi.methods.createTransaction.call({ rateId, apiKey });
+    if (transaction) {
+      return Orders.update({
+        _id: orderId
+      }, {
+        $set: {
+          "shipping.0.shippingLabelUrl": transaction.label_url,
+          "shipping.0.tracking": transaction.tracking_number,
+          "shipping.0.shippo.transactionId": transaction.object_id,
+          "shipping.0.shippo.trackingStatusDate": null,
+          "shipping.0.shippo.trackingStatusStatus": null
+        }
+      });
+    }
+
     return false;
   }
 };

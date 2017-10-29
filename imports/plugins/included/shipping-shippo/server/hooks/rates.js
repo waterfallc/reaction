@@ -3,7 +3,8 @@ import { Shipping, Packages } from "/lib/collections";
 import { Logger, Reaction, Hooks } from "/server/api";
 
 // callback ran on getShippingRates hook
-function getShippingRates(previousQueryResults, cart) {
+function getShippingRates(previousQueryResults, cartAndShopId) {
+  const {cart, shopId} = cartAndShopId;
   const marketplaceSettings = Reaction.getMarketplaceSettings();
   let merchantShippingRates = false;
   if (marketplaceSettings && marketplaceSettings.public && marketplaceSettings.public.merchantShippingRates) {
@@ -25,9 +26,10 @@ function getShippingRates(previousQueryResults, cart) {
     });
   }
 
+  const shopHasItems = (cart.items && cart.items.find( item => (item.shopId === shopId)));
 
   // must have cart items and package enabled to calculate shipping
-  if (!pkgData || !cart.items || pkgData.settings.shippo.enabled !== true) {
+  if (!pkgData || !shopHasItems || pkgData.settings.shippo.enabled !== true) {
     return [rates, retrialTargets];
   }
 
@@ -37,12 +39,11 @@ function getShippingRates(previousQueryResults, cart) {
     "provider.enabled": true
   };
 
-  // if we don't have merchant shipping rates enabled, only grab rates from primary shop
+  // if we don't have merchant shipping rates enabled, use primary shop's shipping Methods to generate rates
   if (!merchantShippingRates) {
     shops.push(Reaction.getPrimaryShopId());
   } else {
-    // create an array of shops, allowing
-    // the cart to have products from multiple shops
+    // create an array of shops
     for (const product of products) {
       if (product.shopId) {
         shops.push(product.shopId);
@@ -70,7 +71,7 @@ function getShippingRates(previousQueryResults, cart) {
     if (Object.keys(shippoDocs).length > 0) {
       const targets = retrialTargets.slice();
       const shippingRatesInfo =
-        Meteor.call("shippo/getShippingRatesForCart", cart._id, shippoDocs, targets);
+        Meteor.call("shippo/getShippingRatesForCart", cart._id, shopId, shippoDocs, targets);
       const [shippoRates, singleRetrialTarget] = shippingRatesInfo;
       rates.push(...shippoRates);
       retrialTargets.push(...singleRetrialTarget);

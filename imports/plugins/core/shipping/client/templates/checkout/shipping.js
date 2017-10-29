@@ -4,7 +4,7 @@ import { EJSON } from "meteor/ejson";
 import { Template } from "meteor/templating";
 import { ReactiveDict } from "meteor/reactive-dict";
 import { Reaction } from "/client/api";
-import { Cart } from "/lib/collections";
+import { Cart, Media, Shops } from "/lib/collections";
 
 
 // Because we are duplicating shipment quotes across shipping records
@@ -33,41 +33,39 @@ function uniqObjects(objs) {
  * of each available shipping carrier like UPS, Fedex etc.
  * @param {Object} currentCart - The current cart that's about
  * to be checked out.
+ * @param {String} shopId - The shop that shipping quotes are for.
  * @returns {Array} - an array of the quotations of multiple shipping
  * carriers.
  */
-function cartShippingQuotes(currentCart) {
+function cartShippingQuotes(currentCart, shopId) {
   const cart = currentCart || Cart.findOne();
   const shipmentQuotes = [];
-  if (cart) {
-    if (cart.shipping) {
-      for (const shipping of cart.shipping) {
-        if (shipping.shipmentQuotes) {
-          for (const quote of shipping.shipmentQuotes) {
-            shipmentQuotes.push(quote);
-          }
-        }
+  if (cart && cart.shipping) {
+    const shipping = cart.shipping.find(shippingRec => shippingRec.shopId === shopId);
+    if (shipping && shipping.shipmentQuotes) {
+      for (const quote of shipping.shipmentQuotes) {
+        quote.shopId = shopId;
+        shipmentQuotes.push(quote);
       }
     }
   }
   return uniqObjects(shipmentQuotes);
 }
 
-function shippingMethodsQueryStatus(currentCart) {
+function shippingMethodsQueryStatus(currentCart, shopId) {
   const cart = currentCart || Cart.findOne();
   let queryStatus;
   let failingShippingProvider;
 
-  if (cart) {
-    if (cart.shipping) {
-      for (const shipping of cart.shipping) {
-        const quotesQueryStatus = shipping.shipmentQuotesQueryStatus;
-        if (quotesQueryStatus) {
-          queryStatus = quotesQueryStatus.requestStatus;
-        }
-        if (queryStatus === "error") {
-          failingShippingProvider = quotesQueryStatus.shippingProvider;
-        }
+  if (cart && cart.shipping) {
+    const shopShipping = cart.shipping.find(shippingRec => shippingRec.shopId === shopId);
+    if (shopShipping) {
+      const quotesQueryStatus = shopShipping.shipmentQuotesQueryStatus;
+      if (quotesQueryStatus) {
+        queryStatus = quotesQueryStatus.requestStatus;
+      }
+      if (queryStatus === "error") {
+        failingShippingProvider = quotesQueryStatus.shippingProvider;
       }
     }
   }
@@ -75,19 +73,19 @@ function shippingMethodsQueryStatus(currentCart) {
   return [queryStatus, failingShippingProvider];
 }
 
+
 /**
  * cartShipmentMethods - gets current shipment methods.
  * @return {Array} - Returns multiple methods if more than one
  * carrier has been chosen.
  */
-function cartShipmentMethods() {
+function cartShipmentMethods(shopId) {
   const cart = Cart.findOne();
   const shipmentMethods = [];
-  if (cart) {
-    if (cart.shipping) {
-      for (const shipping of cart.shipping) {
-        shipmentMethods.push(shipping.shipmentMethod);
-      }
+  if (cart && cart.shipping) {
+    const shopShipping = cart.shipping.find(shipRec => shipRec.shopId === shopId);
+    if (shopShipping) {
+      shipmentMethods.push(shopShipping.shipmentMethod);
     }
   }
   return shipmentMethods;
@@ -111,10 +109,7 @@ Template.coreCheckoutShipping.onCreated(function () {
     this.subscribe("Shipping");
   });
 
-  this.state = new ReactiveDict();
-  this.state.setDefault({
-    isLoadingShippingMethods: true
-  });
+  this.isLoadingShippingMethods = new ReactiveDict();
 
   const enabled = enabledShipping();
   const isEnabled = enabled.length;
@@ -131,33 +126,67 @@ Template.coreCheckoutShipping.onCreated(function () {
 });
 
 Template.coreCheckoutShipping.helpers({
+  shopSummaryList: function () {
+    const cart = Cart.findOne();
+    if (!cart && !cart.items) {
+      return;
+    }
+
+    Meteor.subscribe("CartImages", cart.items);
+    const itemsByShop = cart.getItemsByShop();
+    return Object.keys(itemsByShop).map(shopId => {
+      // Todo: merchant basic information like this ,probably should exist somewhere in the cart and not fetched
+      // dynamically. Maybe a Shops array with basic info's like name slug avatar
+      const shop = Shops.findOne(shopId);
+      const shopName = shop && shop.name || shopId;
+      const products = itemsByShop[shopId];
+
+      products.forEach(item => {
+        let img = Media.findOne({
+          "metadata.variantId": item.variants._id
+        });
+        if (img) {
+          item.imgUrl = img.url({store: "thumbnail"});
+          return;
+        }
+        img = Media.findOne({
+          "metadata.productId": item.productId
+        });
+        item.imgUrl = img && img.url({store: "thumbnail"});
+      });
+
+      return {shopId, shopName, products};
+    });
+  },
+
   // retrieves current rates and updates shipping rates
   // in the users cart collection (historical, and prevents repeated rate lookup)
-  shipmentQuotes: function () {
+  shipmentQuotes: function (shopId) {
     const instance = Template.instance();
     if (instance.subscriptionsReady()) {
       const cart = Cart.findOne();
 
+
       // isLoadingShippingMethods is updated here because, when this template
       // reacts to a change in data, this method is called before hasShippingMethods().
-      const isLoadingShippingMethods = shippingMethodsQueryStatus()[0] === "pending";
-      instance.state.set("isLoadingShippingMethods", isLoadingShippingMethods);
+      const isLoadingShippingMethods = shippingMethodsQueryStatus(shopId)[0] === "pending";
+      instance.isLoadingShippingMethods.set(shopId, isLoadingShippingMethods);
 
-      const shippingQuotes = cartShippingQuotes(cart);
+      const shippingQuotes = cartShippingQuotes(cart, shopId);
       return shippingQuotes;
     }
   },
 
-  hasShippingMethods() {
+  hasShippingMethods(shopId) {
     const instance = Template.instance();
-    const isLoadingShippingMethods = instance.state.get("isLoadingShippingMethods");
+    const isLoadingShippingMethods = instance.isLoadingShippingMethods.get(shopId);
     if (isLoadingShippingMethods) {
       return true;
     }
 
     // Useful for when shipping methods are enabled, but querying them fails
     // due to internet connection issues.
-    const quotesQueryStatus = shippingMethodsQueryStatus();
+    const quotesQueryStatus = shippingMethodsQueryStatus(shopId);
     const didAllQueriesFail =
       quotesQueryStatus[0] === "error" && quotesQueryStatus[1] === "all";
     if (didAllQueriesFail) {
@@ -174,12 +203,11 @@ Template.coreCheckoutShipping.helpers({
 
   // helper to display currently selected shipmentMethod
   isSelected: function () {
-    const self = this;
-    const shipmentMethods = cartShipmentMethods();
+    const shipmentMethods = cartShipmentMethods(this.shopId);
 
     for (const method of shipmentMethods) {
       // if there is already a selected method, set active
-      if (_.isEqual(self.method, method)) {
+      if (_.isEqual(this.method, method)) {
         return "active";
       }
     }
@@ -228,7 +256,7 @@ Template.coreCheckoutShipping.events({
     const cart = Cart.findOne();
 
     try {
-      Meteor.call("cart/setShipmentMethod", cart._id, self.method);
+      Meteor.call("cart/setShipmentMethod", cart._id, self.method, self.shopId);
     } catch (error) {
       throw new Meteor.Error(error,
         "Cannot change methods while processing.");

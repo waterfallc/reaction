@@ -35,7 +35,7 @@ Template.coreOrderShippingTracking.events({
     const instance = Template.instance();
     instance.$("#btn-processing").removeClass("hidden");
     const orderId = Template.instance().order._id;
-    Meteor.call("shipping/status/refresh", orderId, (result) => {
+    Meteor.call("shipping/status/refresh", orderId, Reaction.getShopId(), (result) => {
       if (result && result.error) {
         instance.$("#btn-processing").addClass("hidden");
         Alerts.toast(i18next.t("orderShipping.labelError", { error: result.error }), "error", { timeout: 7000 });

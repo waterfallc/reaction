@@ -8,40 +8,59 @@
       </h3>
     </div>
     {{#if isReady}}
+      {{!-- each shipment/seller has its own panel --}}
+      {{#each shopSummary in shopSummaryList}}
       <div class="panel-body">
-        <ul class="checkout-shipping list-group">
-          {{#each shipmentQuotes}}
-            <li class="list-group-item {{isSelected ..}}" data-carrier="{{carrier}}" data-method="{{method}}">
-              <span class="text-left">{{method.carrier}} - {{method.label}}</span>
-              <span class="pull-right">{{formatPrice rate}}</span>
+        <div class="col-md-6">
+          <h4>{{shopSummary.shopName}}</h4>
+          <ul class="checkout-shipping-products">
+          {{#each product in shopSummary.products}}
+            <li class="product-details text-center">
+              <div class="col-sm-3 col-xs-3 image" style="background-image: url({{product.imgUrl}})"></div>
+              <div class="col-sm-5 col-xs-5 title">{{product.title}}</div>
+              <div class="col-sm-1 col-xs-1 quantity">{{product.quantity}}</div>
+              <div class="col-sm-3 col-xs-3 price">{{formatPrice product.variants.price}}</div>
             </li>
-          {{else}}
-            {{#if hasShippingMethods}}
-              <div>
-                <div class="spinner-container">
-                  <div class="spinner"></div>
-                </div>
-              </div>
-            {{else}}
-              <div class="panel-body">
-                {{#if isAdmin}}
-                  <div class="alert alert-danger">
-                    <span data-i18n="checkoutShipping.noShippingMethods">No shipping methods are configured.</span>
-                    <a href="#" data-event-action="configure-shipping">
-                      <span data-i18n="checkoutShipping.configureNow">Configure now.</span>
-                    </a>
-                  </div>
-                {{else}}
-                  <div class="alert alert-danger">
-                    <span data-i18n="checkoutShipping.noShippingMethods">No shipping methods are available for this shop.</span>
-                    <span data-i18n="checkoutShipping.contactAdmin">Please contact the store administrator.</span>
-                  </div>
-                {{/if}}
-              </div>
-            {{/if}}
           {{/each}}
-        </ul>
+          </ul>
+        </div>
+        <div class="col-md-6">
+          <h4>Choose shipping method</h4>
+          <ul class="checkout-shipping list-group">
+            {{#each shipmentQuotes shopSummary.shopId}}
+              <li class="list-group-item {{isSelected shopSummary.shopId}}" data-carrier="{{carrier}}" data-method="{{method}}">
+                <span class="shipping-carrier text-left">{{method.carrier}} - {{method.label}}</span>
+                <span class="shipping-price text-right">{{formatPrice rate}}</span>
+              </li>
+            {{else}}
+              {{#if hasShippingMethods shopSummary.shopId}}
+                <div>
+                  <div class="spinner-container">
+                    <div class="spinner"></div>
+                  </div>
+                </div>
+              {{else}}
+                <div class="panel-body">
+                  {{#if isAdmin}}
+                    <div class="alert alert-danger">
+                      <span data-i18n="checkoutShipping.noShippingMethods">No shipping methods are configured.</span>
+                      <a href="#" data-event-action="configure-shipping">
+                        <span data-i18n="checkoutShipping.configureNow">Configure now.</span>
+                      </a>
+                    </div>
+                  {{else}}
+                    <div class="alert alert-danger">
+                      <span data-i18n="checkoutShipping.noShippingMethods">No shipping methods are available for this shop.</span>
+                      <span data-i18n="checkoutShipping.contactAdmin">Please contact the store administrator.</span>
+                    </div>
+                  {{/if}}
+                </div>
+              {{/if}}
+            {{/each}}
+          </ul>
+        </div>
       </div>
+      {{/each}}
     {{else}}
       <div class="spinner-container">
         <div class="spinner"></div>

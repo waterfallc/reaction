@@ -163,7 +163,7 @@ function updateShipmentQuotes(cartId, rates, selector) {
   return update;
 }
 
-function updateShippingRecordByShop(cart, rates) {
+function updateShippingRecordByShop(cart, ratesPerShop) {
   const cartId = cart._id;
   const itemsByShop = cart.getItemsByShop();
   const shops = Object.keys(itemsByShop);
@@ -177,9 +177,9 @@ function updateShippingRecordByShop(cart, rates) {
     const cartForShipping = Cart.findOne(selector);
     // we may have added a new shop since the last time we did this, if so we need to add a new record
     if (cartForShipping) {
-      update = updateShipmentQuotes(cartId, rates, selector);
+      update = updateShipmentQuotes(cartId, ratesPerShop[shopId], selector);
     } else {
-      update = createShipmentQuotes(cartId, shopId, rates);
+      update = createShipmentQuotes(cartId, shopId, ratesPerShop[shopId]);
     }
 
     Cart.update(selector, update, function (error) {
@@ -187,7 +187,7 @@ function updateShippingRecordByShop(cart, rates) {
         Logger.warn(`Error updating rates for cart ${cartId}`, error);
         return;
       }
-      Logger.debug(`Success updating rates for cart ${cartId}`, rates);
+      Logger.debug(`Success updating rates for cart ${cartId}`, ratesPerShop[shopId]);
     });
   });
   pruneShippingRecordsByShop(cart);
@@ -253,8 +253,13 @@ export const methods = {
         addAddresses(cart);
         cart = Cart.findOne(cartId);
       }
-      const rates = Meteor.call("shipping/getShippingRates", cart);
-      updateShippingRecordByShop(cart, rates);
+
+      const ratesPerShop = {};
+      const shopIds = Object.keys(cart.getItemsByShop());
+      shopIds.forEach(shopId => {
+        ratesPerShop[shopId] = Meteor.call("shipping/getShippingRates", cart, shopId);
+      });
+      updateShippingRecordByShop(cart, ratesPerShop);
     }
   },
 
@@ -262,23 +267,29 @@ export const methods = {
    * shipping/getShippingRates
    * @summary just gets rates, without updating anything
    * @param {Object} cart - cart object
+   * @param {String} shopId - shop that these rates will be fetched/generated for.
    * @return {Array} return updated rates in cart
    */
-  "shipping/getShippingRates": function (cart) {
+  "shipping/getShippingRates": function (cart, shopId) {
     check(cart, CartSchema);
+    check(shopId, String);
+
     const rates = [];
     const retrialTargets = [];
     // must have items to calculate shipping
-    if (!cart.items || !cart.items.length) {
+
+
+    if (!cart.items || !cart.items.find(item => item.shopId === shopId)) {
       return rates;
     }
+
     // hooks for other shipping rate events
     // all callbacks should return rates
-    Hooks.Events.run("onGetShippingRates", [rates, retrialTargets], cart);
+    Hooks.Events.run("onGetShippingRates", [rates, retrialTargets], { cart, shopId });
 
     // Try once more.
     if (retrialTargets.length > 0) {
-      Hooks.Events.run("onGetShippingRates", [rates, retrialTargets], cart);
+      Hooks.Events.run("onGetShippingRates", [rates, retrialTargets], {cart, shopId});
 
       if (retrialTargets.length > 0) {
         Logger.warn("Failed to get shipping methods from these packages:", retrialTargets);

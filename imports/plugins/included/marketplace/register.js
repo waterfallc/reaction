@@ -4,7 +4,7 @@ Reaction.registerPackage({
   label: "Marketplace",
   name: "reaction-marketplace",
   icon: "fa fa-globe",
-  autoEnable: false,
+  autoEnable: true,
   settings: {
     name: "Marketplace",
     enabled: true,
@@ -49,7 +49,7 @@ Reaction.registerPackage({
       }]
     },
     public: {
-      allowMerchantSignup: false, // Merchants can sign up without an invite
+      allowMerchantSignup: true, // Merchants can sign up without an invite
       marketplaceNakedRoutes: true, // Routes to the primary marketplace shop should not use shop prefix
       merchantCart: false, // Unique cart for each merchant
       merchantFulfillment: true, // Fulfillment comes from merchant which supplies product

@@ -95,6 +95,32 @@
   color: @checkout-progress-active-text;
 }
 
+.checkout-shipping-products {
+  padding: 0;
+  .product-details {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .image {
+    width: 50px;
+    height: 50px;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+}
+
+.checkout-shipping {
+  li {
+    display: flex;
+    justify-content: space-between;
+  }
+  .shipping-price {
+    white-space: nowrap;
+  }
+}
+
 // patch for payment autoform's mysteriously
 // not getting the form-control class
 .core-payment-method-form {

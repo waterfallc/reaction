@@ -10,14 +10,20 @@ import { Cart as CartSchema } from "/lib/collections/schemas";
  * @param {Array} previousQueryResults - an array of shipping rates and
  * info about failed calls to the APIs of some shipping methods providers
  * e.g Shippo.
- * @param {Object} cart - details about the purchase a user wants to make.
+ * @param {Object} cartAndShopId, cartAndShopId.cart: details about the purchase a user wants to make,
+ * cartAndShopId.shopId: the specific shop that shipping rates are fetched for
  * @return {Array} - an array that contains two arrays: the first array will
  * be an updated list of shipping rates, and the second will contain info for
  * retrying this specific package if any errors occurred while retrieving the
  * shipping rates.
  */
-function getShippingRates(previousQueryResults, cart) {
-  check(cart, CartSchema);
+function getShippingRates(previousQueryResults, cartAndShopId) {
+  check(cartAndShopId, {
+    cart: CartSchema,
+    shopId: String
+  });
+  const {cart, shopId} = cartAndShopId;
+
   const [rates, retrialTargets] = previousQueryResults;
   const shops = [];
   const products = cart.items;

@@ -108,7 +108,7 @@ function removeShippingAddresses(cart) {
  * @file Methods for Cart - Use these methods by running `Meteor.call()`
  * @example Meteor.call("cart/createCart", this.userId, sessionId)
  * @namespace Methods/Cart
-*/
+ */
 
 Meteor.methods({
   /**
@@ -583,11 +583,13 @@ Meteor.methods({
    * @summary Saves method as order default
    * @param {String} cartId - cartId to apply shipmentMethod
    * @param {Object} method - shipmentMethod object
+   * @param {String} shopId - shopId that shipmentMethod is for
    * @return {Number} return Mongo update result
    */
-  "cart/setShipmentMethod": function (cartId, method) {
+  "cart/setShipmentMethod": function (cartId, method, shopId) {
     check(cartId, String);
     check(method, Object);
+    check(shopId, String);
     // get current cart
     const cart = Collections.Cart.findOne({
       _id: cartId,
@@ -605,20 +607,24 @@ Meteor.methods({
     let update;
     // if we have an existing item update it, otherwise add to set.
     if (cart.shipping) {
-      const updatedShipping = [];
-      cart.shipping.map((shipRecord) => {
-        shipRecord.shipmentMethod = method;
-        updatedShipping.push(shipRecord);
-      });
+      if (shopId) {
+        const shopShipping = cart.shipping.find((shipRecord) => (shipRecord.shopId === shopId));
+        if (shopShipping) {
+          shopShipping.shipmentMethod = method;
 
-      selector = {
-        _id: cartId
-      };
-      update = {
-        $set: {
-          shipping: updatedShipping
+          selector = {
+            "_id": cartId,
+            "shipping.shopId": shopId
+          };
+          update = {
+            $set: {
+              "shipping.$": shopShipping
+            }
+          };
+        } else {
+          throw new Meteor.Error(`Could not find shipping with shopId ${shopId} in cart ${cartId}`);
         }
-      };
+      }
     } else {
       selector = {
         _id: cartId
@@ -641,9 +647,12 @@ Meteor.methods({
       throw new Meteor.Error("An error occurred saving the order", e);
     }
 
-    // this will transition to review
-    return Meteor.call("workflow/pushCartWorkflow", "coreCartWorkflow",
-      "coreCheckoutShipping");
+    // When all Cart's shippings have a shipment method selected
+    // checkout workflow gets transition to review
+    if (cart.shipping.every(shipRecord => (shipRecord.shipmentMethod && shipRecord.shipmentMethod.enabled))) {
+      return Meteor.call("workflow/pushCartWorkflow", "coreCartWorkflow",
+        "coreCheckoutShipping");
+    }
   },
 
   /**
@@ -1020,6 +1029,7 @@ Meteor.methods({
     const cartId = cart._id;
 
     const cartShipping = cart.getShippingTotal();
+    const cartShippingByShop = cart.getShippingTotalByShop();
     const cartSubTotal = cart.getSubTotal();
     const cartSubtotalByShop = cart.getSubtotalByShop();
     const cartTaxes = cart.getTaxTotal();
@@ -1046,7 +1056,7 @@ Meteor.methods({
       paymentMethods.forEach((paymentMethod) => {
         const shopId = paymentMethod.shopId;
         const invoice = {
-          shipping: parseFloat(cartShipping),
+          shipping: parseFloat(cartShippingByShop[shopId]),
           subtotal: parseFloat(cartSubtotalByShop[shopId]),
           taxes: parseFloat(cartTaxesByShop[shopId]),
           discounts: parseFloat(cartDiscounts),

@@ -5,8 +5,10 @@ import { Reaction } from "/server/api";
 import { shippingRoles } from "../lib/roles";
 
 export const methods = {
-  "shipping/status/refresh": function (orderId) {
+  "shipping/status/refresh": function (orderId, shopId) {
     check(orderId, String);
+    check(shopId, String);
+
     // this is a stub for future core processing
     // it also serves as a place for Method Hooks
     // in other shipping packages, like Shippo
