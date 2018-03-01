@@ -36,6 +36,8 @@ MethodHooks.after("taxes/calculate", (options) => {
         // for bad auth, timeout, or misconfiguration there's nothing we can do so keep moving
       } else if (_.includes([503, 400, 401], result.error.errorCode)) {
         Logger.error("Timeout, Authentification, or Misconfiguration error: Not trying to estimate cart");
+      } else if (result.error.errorCode === 300) {
+        Logger.error("Address Validation Error, handle this");
       } else {
         Logger.error("Unknown error", result.error.errorCode);
       }

@@ -120,6 +120,21 @@ function parseError(error) {
     return errorData;
   }
 
+  if (error.response && error.response.statusCode === 400) {
+    // address validation error
+    if (error.response.data.error.code === "GetTaxError") {
+      errorData = {
+        errorCode: 300,
+        type: "validationError",
+        errorDetails: {
+          messages: error.response.data.error.details.map((errorDetail) => errorDetail.message),
+          descriptions: error.response.data.error.details.map((errorDetail) => errorDetail.description)
+        }
+      };
+    }
+    return errorData;
+  }
+
   if (error.response && error.response.data && error.response.data.error.details) {
     const errorDetails = [];
     const { details } = error.response.data.error;
