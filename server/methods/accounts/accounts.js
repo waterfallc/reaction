@@ -145,10 +145,10 @@ export function syncUsersAndAccounts() {
 function getValidator() {
   const shopId = Reaction.getShopId();
   const geoCoders = Packages.find({
-    "registry.provides": "addressValidation",
+    "registry": { $elemMatch: { provides: "addressValidation" } },
     "settings.addressValidation.enabled": true,
     shopId,
-    "enabled": true
+    "settings.avalara.enabled": true
   }).fetch();
 
   if (!geoCoders.length) {
