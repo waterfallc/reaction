@@ -13,6 +13,13 @@
     <div class="row">
       <span id="addressbookAdd-alerts-placement">{{> inlineAlerts placement="addressBookAdd"}}</span>
     </div>
+  {{#if hasErrors}}
+    <div class="row">
+      {{#each formError in formErrors}}
+      <span>{{formError.summary}}We have errors</span>
+      {{/each}}
+    </div>
+  {{/if}}
     <fieldset>
         {{> addressBookForm}}
         <div class="row text-right">

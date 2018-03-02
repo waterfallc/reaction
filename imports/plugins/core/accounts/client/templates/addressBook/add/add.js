@@ -78,6 +78,25 @@ Template.addressBookAdd.helpers({
     }
 
     return false;
+  },
+
+  hasErrors() {
+    const addressState = Session.get("addressState");
+    if (addressState.formErrors) {
+      addressState.formErrors.forEach((formError) => {
+        Alerts.inline(formError.summary, "error", {
+          placement: "addressbookAdd",
+          autoHide: false
+        });
+      });
+
+      return addressState.formErrors.length;
+    }
+  },
+
+  formErrors() {
+    const addressState = Session.get("addressState");
+    return addressState.formErrors;
   }
 });
 
@@ -94,8 +113,18 @@ AutoForm.hooks({
       const addressBook = $(this.template.firstNode).closest(".address-book");
 
       Meteor.call("accounts/validateAddress", insertDoc, (err, res) => {
-        // if the address is validated OR the address has already been through the validation process, pass it on
-        if (res.validated) {
+        if (!res.validation && res.formErrors.length) {
+          // address failed validation, pass back to add screen and show errors
+          const addressState = {
+            requiresReview: false,
+            address: insertDoc,
+            formErrors: res.formErrors,
+            fieldErrors: res.fieldErrors
+          };
+          Session.set("addressState", addressState);
+          addressBook.trigger($.Event("addressAddInError"));
+        } else if (res.validated) {
+          // if the address is validated OR the address has already been through the validation process, pass it on
           Meteor.call("accounts/addressBookAdd", insertDoc, (error, result) => {
             if (error) {
               Alerts.toast(i18next.t("addressBookAdd.failedToAddAddress", { err: error.message }), "error");

@@ -139,5 +139,10 @@ Template.addressBook.events({
     event.preventDefault();
     event.stopPropagation();
     Template.instance().currentViewTemplate.set("addressBookEdit");
+  },
+  addressAddInError: (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    Template.instance().currentViewTemplate.set("addressBookAdd");
   }
 });
