@@ -181,6 +181,17 @@ function getValidator() {
 }
 
 /**
+ * @name markAddressValidationBypassed
+ * @summary Write that the customer has bypassed address validation
+ * @returns {Number} updateResult - Result of the update
+ */
+function markAddressValidationBypassed() {
+  const userId = Meteor.userId();
+  const updateResult = Cart.update({ userId }, { $set: { bypassAddressValidation: true } });
+  return updateResult;
+}
+
+/**
  * @name compareAddress
  * @summary Compare individual fields of address and accumulate errors
  * @param {Object} address - the address provided by the customer
@@ -1077,5 +1088,6 @@ Meteor.methods({
   "accounts/createFallbackLoginToken": createFallbackLoginToken,
   "accounts/updateEmailAddress": updateEmailAddress,
   "accounts/removeEmailAddress": removeEmailAddress,
-  "accounts/setProfileCurrency": setProfileCurrency
+  "accounts/setProfileCurrency": setProfileCurrency,
+  "accounts/markAddressValidationBypassed": markAddressValidationBypassed
 });

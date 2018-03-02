@@ -83,20 +83,42 @@ Template.addressBookAdd.helpers({
   hasErrors() {
     const addressState = Session.get("addressState");
     if (addressState.formErrors) {
-      addressState.formErrors.forEach((formError) => {
-        Alerts.inline(formError.summary, "error", {
-          placement: "addressbookAdd",
-          autoHide: false
-        });
-      });
-
       return addressState.formErrors.length;
     }
+    return false;
   },
 
   formErrors() {
     const addressState = Session.get("addressState");
-    return addressState.formErrors;
+    if (!addressState.errorsShown) {
+      addressState.formErrors.forEach((formError) => {
+        Alerts.inline(formError.details, "error", {
+          placement: "addressBookAdd",
+          autoHide: false
+        });
+      });
+      addressState.errorsShown = true;
+      Session.set("addressState", addressState);
+    }
+  }
+});
+
+Template.addressBookAdd.events({
+  "click button#bypass-address-validation"(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    Meteor.call("accounts/markAddressValidationBypassed", (error, result) => {
+      if (!error && result) {
+        Alerts.toast(i18next.t("addressBookAdd.validationBypassed"), "success");
+        Alerts.removeSeen();
+        $("button#bypass-address-validation").hide();
+        const addressState = Session.get("addressState");
+        addressState.validationBypassed = true;
+        Session.set("addressState", addressState);
+        // Hide button
+        // Hide errors
+      }
+    });
   }
 });
 
@@ -144,7 +166,8 @@ AutoForm.hooks({
             address: insertDoc,
             validatedAddress: res.validatedAddress,
             formErrors: res.formErrors,
-            fieldErrors: res.fieldErrors
+            fieldErrors: res.fieldErrors,
+            errorsShown: false
           };
           Session.set("addressState", addressState);
           addressBook.trigger($.Event("addressRequiresReview"));
