@@ -192,6 +192,18 @@ function markAddressValidationBypassed() {
 }
 
 /**
+ * @name markTaxCalculationFailed
+ * @summary Write tax calculation has failed for this customer
+ * @returns {Number} updateResult - Result of the update
+ */
+function markTaxCalculationFailed() {
+  const userId = Meteor.userId();
+  const updateResult = Cart.update({ userId }, { $set: { taxCalculationFailed: true } });
+  return updateResult;
+}
+
+
+/**
  * @name compareAddress
  * @summary Compare individual fields of address and accumulate errors
  * @param {Object} address - the address provided by the customer
@@ -1089,5 +1101,6 @@ Meteor.methods({
   "accounts/updateEmailAddress": updateEmailAddress,
   "accounts/removeEmailAddress": removeEmailAddress,
   "accounts/setProfileCurrency": setProfileCurrency,
-  "accounts/markAddressValidationBypassed": markAddressValidationBypassed
+  "accounts/markAddressValidationBypassed": markAddressValidationBypassed,
+  "accounts/markTaxCalculationFailed": markTaxCalculationFailed
 });

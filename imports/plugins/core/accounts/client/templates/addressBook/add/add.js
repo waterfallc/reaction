@@ -107,16 +107,27 @@ Template.addressBookAdd.events({
   "click button#bypass-address-validation"(event) {
     event.preventDefault();
     event.stopPropagation();
-    Meteor.call("accounts/markAddressValidationBypassed", (error, result) => {
-      if (!error && result) {
-        Alerts.toast(i18next.t("addressBookAdd.validationBypassed"), "success");
-        Alerts.removeSeen();
-        $("button#bypass-address-validation").hide();
-        const addressState = Session.get("addressState");
-        addressState.validationBypassed = true;
-        Session.set("addressState", addressState);
-        // Hide button
-        // Hide errors
+    Alerts.alert({
+      text: "With an invalid address a store may consider your order to be high risk and not complete your order." +
+      "If you are sure your address is correct please click proceed",
+      type: "warning",
+      showCancelButton: true
+    }, (isConfirm) => {
+      if (isConfirm) {
+        Meteor.call("accounts/markTaxCalculationFailed", (err, res) => {
+          if (!err && res) {
+            Meteor.call("accounts/markAddressValidationBypassed", (error, result) => {
+              if (!error && result) {
+                $("button#bypass-address-validation").hide();
+                const addressState = Session.get("addressState");
+                addressState.validationBypassed = true;
+                Session.set("addressState", addressState);
+                // Hide button
+                // Hide errors
+              }
+            });
+          }
+        });
       }
     });
   }
