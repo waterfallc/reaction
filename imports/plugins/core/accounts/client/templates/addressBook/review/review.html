@@ -48,7 +48,9 @@
         <span class="address-line-copyover fa fa-check-circle"></span>
       </div>
       <div data-key="address1" class="col-md-1">
-        <span data-key="address1" class="address-ignore">Ignore</span>
+        {{#if fieldErrors.address1.length}}
+          <span data-key="address1" class="address-ignore">Ignore</span>
+        {{/if}}
       </div>
     </div>
 
