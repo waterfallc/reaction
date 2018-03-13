@@ -16,13 +16,17 @@
   {{#if hasErrors}}
     {{formErrors}}
     <div class="row text-right">
-      <span><button id="bypass-address-validation" class="btn btn-primary" data-i18n="app.bypassValidation">Save and continue without validation</button></span>
+
     </div>
   {{/if}}
     <fieldset>
         {{> addressBookForm}}
         <div class="row text-right">
-          <button type="submit" class="btn btn-primary" data-i18n="app.saveAndContinue" data-event-action="saveAddress">Save and continue</button>
+          {{#if hasErrors}}
+            <button type="submit"  class="btn btn-primary" data-i18n="app.bypassValidation" id="bypass-address-validation">Save and continue without validation</button>
+          {{else}}
+            <button type="submit" class="btn btn-primary" data-i18n="app.saveAndContinue" data-event-action="saveAddress">Save and continue</button>
+          {{/if}}
           {{#if hasAddressBookEntries}}
           <button type="reset" class="btn btn-default" data-i18n="app.cancel" data-event-action="cancelAddressEdit">Cancel</button>
           {{/if}}

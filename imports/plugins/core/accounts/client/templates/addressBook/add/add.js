@@ -8,6 +8,7 @@ import { Template } from "meteor/templating";
 import { Reaction, i18next } from "/client/api";
 import * as Collections from "/lib/collections";
 
+
 Template.addressBookAdd.onCreated(function () {
   this.currentCountry = new ReactiveVar(null);
   // hit Reaction's GeoIP server and try to determine the user's country
@@ -107,6 +108,7 @@ Template.addressBookAdd.events({
   "click button#bypass-address-validation"(event) {
     event.preventDefault();
     event.stopPropagation();
+    const instance = Template.instance();
     Alerts.alert({
       text: "With an invalid address a store may consider your order to be high risk and not complete your order." +
       "If you are sure your address is correct please click proceed",
@@ -118,12 +120,24 @@ Template.addressBookAdd.events({
           if (!err && res) {
             Meteor.call("accounts/markAddressValidationBypassed", (error, result) => {
               if (!error && result) {
+                Alerts.removeSeen();
                 $("button#bypass-address-validation").hide();
                 const addressState = Session.get("addressState");
                 addressState.validationBypassed = true;
                 Session.set("addressState", addressState);
-                // Hide button
-                // Hide errors
+                const insertDoc = addressState.address;
+                Meteor.call("accounts/addressBookAdd", insertDoc, (insError, insResult) => {
+                  if (insError) {
+                    Alerts.toast(i18next.t("addressBookAdd.failedToAddAddress", { err: insError.message }), "error");
+                    this.done(new Error("Failed to add address: ", error));
+                    return false;
+                  }
+                  if (insResult) {
+                    const addressBook = $(instance.firstNode).closest(".address-book");
+                    addressBook.trigger($.Event("showMainView"));
+                    return true;
+                  }
+                });
               }
             });
           }
