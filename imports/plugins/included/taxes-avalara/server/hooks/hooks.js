@@ -21,6 +21,10 @@ function linesToTaxes(lines) {
 MethodHooks.after("taxes/calculate", (options) => {
   const cartId = options.arguments[0];
   const cartToCalc = Cart.findOne(cartId);
+  if (cartToCalc.taxCalculationFailed || cartToCalc.userBypassedAddressValidation) {
+    // User bypassed address validation so we can't calc taxes so don't even try
+    return options.result;
+  }
   const pkg = taxCalc.getPackageData();
 
   Logger.debug("Avalara triggered on taxes/calculate for cartId:", cartId);
