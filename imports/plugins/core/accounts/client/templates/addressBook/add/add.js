@@ -160,7 +160,7 @@ AutoForm.hooks({
       const addressBook = $(this.template.firstNode).closest(".address-book");
 
       Meteor.call("accounts/validateAddress", insertDoc, (err, res) => {
-        if (!res.validation && res.formErrors.length) {
+        if (!res.validation && res.formErrors && res.formErrors.length) {
           // address failed validation, pass back to add screen and show errors
           const addressState = {
             requiresReview: false,
