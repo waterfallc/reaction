@@ -1,6 +1,7 @@
 import os from "os";
 import _ from "lodash";
 import accounting from "accounting-js";
+import SimpleSchema from "simpl-schema";
 import { Meteor } from "meteor/meteor";
 import { HTTP } from "meteor/http";
 import { check } from "meteor/check";
@@ -34,9 +35,9 @@ const ErrorObject = new SimpleSchema({
 });
 
 // This will validate the returned error object fits the schema
-function validatedError(wrapped) {
+function validatedError(wrapped, ...args) {
   return function () {
-    const result = wrapped.apply(this, arguments);
+    const result = wrapped.apply(this, args);
     const errorObjectContext = ErrorObject.newContext();
     errorObjectContext.validate(result);
     if (!errorObjectContext.isValid()) {
@@ -56,7 +57,7 @@ async function lazyLoadMoment() {
 const countriesWithRegions = ["US", "CA", "DE", "AU"];
 const requiredFields = ["username", "password", "apiLoginId", "companyCode", "shippingTaxCode"];
 
-
+// declare top-level container object
 const taxCalc = {};
 
 
