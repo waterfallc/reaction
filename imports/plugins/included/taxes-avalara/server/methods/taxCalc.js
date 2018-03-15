@@ -22,14 +22,18 @@ const errorDetails = new SimpleSchema({
 
 // Validate that whenever we return an error we return the same format
 const ErrorObject = new SimpleSchema({
-  type: {
+  "type": {
     type: String
   },
-  errorCode: {
+  "errorCode": {
     type: Number
   },
-  errorDetails: {
-    type: [errorDetails],
+  "errorDetails": {
+    type: Array,
+    optional: true
+  },
+  "errorDetails.$": {
+    type: errorDetails,
     optional: true
   }
 });
