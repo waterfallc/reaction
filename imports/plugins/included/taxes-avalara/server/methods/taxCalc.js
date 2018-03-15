@@ -4,7 +4,6 @@ import accounting from "accounting-js";
 import { Meteor } from "meteor/meteor";
 import { HTTP } from "meteor/http";
 import { check } from "meteor/check";
-import { SimpleSchema } from "meteor/aldeed:simple-schema";
 import { Shops, Accounts } from "/lib/collections";
 import { TaxCodes } from "/imports/plugins/core/taxes/lib/collections";
 import { Reaction, Logger } from "/server/api";
@@ -259,7 +258,7 @@ function avaPost(requestUrl, options) {
     };
   }
   const appVersion = Reaction.getAppVersion();
-  const meteorVersion = _.split(Meteor.release, "@")[1];
+  const meteorVersion = Meteor.release.split("@")[1];
   const machineName = os.hostname();
   const avaClient = `Reaction; ${appVersion}; Meteor HTTP; ${meteorVersion}; ${machineName}`;
   const headers = {
@@ -557,7 +556,7 @@ function cartToSalesOrder(cart) {
  * @returns {Object} result Result of SalesOrder call
  */
 taxCalc.estimateCart = function (cart, callback) {
-  check(cart, Reaction.Schemas.Cart);
+  Reaction.Schemas.Cart.validate(cart);
   check(callback, Function);
 
   if (cart.items && cart.shipping && cart.shipping[0].address) {

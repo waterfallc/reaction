@@ -8,7 +8,6 @@ import { Template } from "meteor/templating";
 import { Reaction, i18next } from "/client/api";
 import * as Collections from "/lib/collections";
 
-
 Template.addressBookAdd.onCreated(function () {
   this.currentCountry = new ReactiveVar(null);
   // hit Reaction's GeoIP server and try to determine the user's country
@@ -155,13 +154,19 @@ Template.addressBookAdd.events({
 AutoForm.hooks({
   addressBookAddForm: {
     onSubmit(insertDoc) {
-      const that = this;
-      this.event.preventDefault();
-      const addressBook = $(this.template.firstNode).closest(".address-book");
+      const { done, event, template } = this; // provided by AutoForm
+      event.preventDefault();
+      const addressBook = $(template.firstNode).closest(".address-book");
+
+      function handleError(error) {
+        Alerts.toast(i18next.t("addressBookAdd.failedToAddAddress", { err: error.message }), "error");
+        done(error);
+      }
 
       Meteor.call("accounts/validateAddress", insertDoc, (err, res) => {
+        if (err) return handleError(err);
+        // address failed validation, pass back to add screen and show errors
         if (!res.validation && res.formErrors && res.formErrors.length) {
-          // address failed validation, pass back to add screen and show errors
           const addressState = {
             requiresReview: false,
             address: insertDoc,
@@ -171,18 +176,10 @@ AutoForm.hooks({
           Session.set("addressState", addressState);
           addressBook.trigger($.Event("addressAddInError"));
         } else if (res.validated) {
-          // if the address is validated OR the address has already been through the validation process, pass it on
-          Meteor.call("accounts/addressBookAdd", insertDoc, (error, result) => {
-            if (error) {
-              Alerts.toast(i18next.t("addressBookAdd.failedToAddAddress", { err: error.message }), "error");
-              that.done(new Error("Failed to add address: ", error));
-              return false;
-            }
-            if (result) {
-              that.done();
-              addressBook.trigger($.Event("showMainView"));
-              return true;
-            }
+          Meteor.call("accounts/addressBookAdd", insertDoc, (error) => {
+            if (error) return handleError(error);
+            done();
+            addressBook.trigger($.Event("showMainView")); // Show the grid
           });
         } else {
           // set addressState and kick it back to review
