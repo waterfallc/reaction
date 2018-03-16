@@ -2,7 +2,7 @@ import React, { Component } from "react";
 import { compose } from "recompose";
 import { Meteor } from "meteor/meteor";
 import { Reaction, i18next } from "/client/api";
-import { Media } from "/lib/collections";
+import { getPrimaryMediaForOrderItem } from "/lib/api";
 import { registerComponent } from "@reactioncommerce/reaction-components";
 import { getShippingInfo } from "../helpers";
 import {
@@ -146,32 +146,47 @@ const wrapComponent = (Comp) => (
     }
 
     /**
-     * Media - find media based on a product/variant
-     * @param  {Object} item object containing a product and variant id
-     * @return {Object|false} An object contianing the media or false
+     * updateBulkStatusHelper
+     *
+     * @summary return formatted shipping object to update state
+     * @param {String} status - the shipping status to be set
+     * @return {Object} the formatted shipping object
      */
-    handleDisplayMedia = (item) => {
-      const variantId = item.variants._id;
-      const { productId } = item;
+    updateBulkStatusHelper = (status) => {
+      const statusIndex = shippingStrings.indexOf(status);
+      return shippingStrings.reduce((shipping, state) => ({
+        ...shipping,
+        [state]: shippingStrings.indexOf(state) <= statusIndex
+      }), {});
+    }
 
-      const variantImage = Media.findOne({
-        "metadata.variantId": variantId,
-        "metadata.productId": productId
-      });
-
-      if (variantImage) {
-        return variantImage;
-      }
-
-      const defaultImage = Media.findOne({
-        "metadata.productId": productId,
-        "metadata.priority": 0
-      });
-
-      if (defaultImage) {
-        return defaultImage;
-      }
-      return false;
+    /**
+     * updateBulkLoadingHelper
+     *
+     * @summary return formatted isLoading object to update state
+     * @param {String} status - the shipping status to be set
+     * @return {Object} the formatted isLoading object
+     */
+    updateBulkLoadingHelper = (status) => {
+      const statusIndex = shippingStrings.indexOf(status);
+      const prevStatusIndex = Object.keys(this.state.shipping).reduce((maxIndex, state) => {
+        if (this.state.shipping[state]) {
+          return Math.max(shippingStrings.indexOf(state), maxIndex);
+        }
+        return maxIndex;
+      }, -1);
+      return shippingStrings.reduce((shipping, state) => {
+        if (prevStatusIndex < statusIndex) {
+          return {
+            ...shipping,
+            [state]: shippingStrings.indexOf(state) <= statusIndex && shippingStrings.indexOf(state) > prevStatusIndex
+          };
+        }
+        return {
+          ...shipping,
+          [state]: shippingStrings.indexOf(state) >= statusIndex && shippingStrings.indexOf(state) <= prevStatusIndex
+        };
+      }, {});
     }
 
     /**
@@ -185,9 +200,7 @@ const wrapComponent = (Comp) => (
     shippingStatusUpdateCall = (selectedOrders, status) => {
       const filteredSelectedOrders = selectedOrders.filter((order) => order.shipping && Object.keys(getShippingInfo(order)).length);
       this.setState({
-        isLoading: {
-          [status]: true
-        }
+        isLoading: this.updateBulkLoadingHelper(status)
       });
       let orderText = "order";
 
@@ -218,9 +231,7 @@ const wrapComponent = (Comp) => (
           orderCount += 1;
           if (orderCount === filteredSelectedOrders.length) {
             this.setState({
-              shipping: {
-                [status]: true
-              },
+              shipping: this.updateBulkStatusHelper(status),
               isLoading: {
                 [status]: false
               }
@@ -599,6 +610,17 @@ const wrapComponent = (Comp) => (
       }
     }
 
+    /**
+     * orderCreditMethod: Finds the credit record in order.billing for the active shop
+     * @param order: The order where to find the billing record in.
+     * @return: The billing record with paymentMethod.method === credit of currently active shop
+     */
+    orderCreditMethod(order) {
+      const creditBillingRecords = order.billing.filter((value) => value.paymentMethod.method === "credit");
+      const billingRecord = creditBillingRecords.find((billing) => billing.shopId === Reaction.getShopId());
+      return billingRecord;
+    }
+
     handleBulkPaymentCapture = (selectedOrdersIds, orders) => {
       this.setState({
         isLoading: {
@@ -608,10 +630,31 @@ const wrapComponent = (Comp) => (
       const selectedOrders = orders.filter((order) => selectedOrdersIds.includes(order._id));
 
       let orderCount = 0;
+      const done = () => {
+        orderCount += 1;
+        if (orderCount === selectedOrders.length) {
+          this.setState({
+            isLoading: {
+              capturePayment: false
+            }
+          });
+          Alerts.alert({
+            text: i18next.t("order.paymentCaptureSuccess"),
+            type: "success",
+            allowOutsideClick: false
+          });
+        }
+      };
 
       // TODO: send these orders in batch as an array. This would entail re-writing the
       // "orders/approvePayment" method to receive an array of orders as a param.
       selectedOrders.forEach((order) => {
+        // Only capture orders which are not captured yet (but possibly are already approved)
+        const billingRecord = this.orderCreditMethod(order);
+        if (billingRecord.paymentMethod.mode === "capture" && billingRecord.paymentMethod.status === "completed") {
+          done();
+          return;
+        }
         Meteor.call("orders/approvePayment", order, (approvePaymentError) => {
           if (approvePaymentError) {
             this.setState({
@@ -632,20 +675,7 @@ const wrapComponent = (Comp) => (
                 });
                 Alerts.toast(`An error occured while capturing the payment: ${capturePaymentError}`, "error");
               }
-
-              orderCount += 1;
-              if (orderCount === selectedOrders.length) {
-                this.setState({
-                  isLoading: {
-                    capturePayment: false
-                  }
-                });
-                Alerts.alert({
-                  text: i18next.t("order.paymentCaptureSuccess"),
-                  type: "success",
-                  allowOutsideClick: false
-                });
-              }
+              done();
             });
           }
         });
@@ -658,7 +688,7 @@ const wrapComponent = (Comp) => (
           {...this.props}
           handleSelect={this.handleSelect}
           handleClick={this.handleClick}
-          displayMedia={this.handleDisplayMedia}
+          displayMedia={getPrimaryMediaForOrderItem}
           selectedItems={this.state.selectedItems}
           selectAllOrders={this.selectAllOrders}
           multipleSelect={this.state.multipleSelect}
