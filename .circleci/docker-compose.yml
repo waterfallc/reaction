@@ -1,13 +1,24 @@
 # Usage:
 # docker-compose up -d
 
-reaction:
+latest:
   container_name: reaction
   image: reactioncommerce/reaction:latest
   links:
     - mongo
   ports:
     - "3000:3000"
+  environment:
+    ROOT_URL: "http://localhost"
+    MONGO_URL: "mongodb://mongo:27017/reaction"
+
+test:
+  container_name: test
+  image: reactioncommerce/reaction:${SHA1}
+  links:
+    - mongo
+  ports:
+    - "4000:3000"
   environment:
     ROOT_URL: "http://localhost"
     MONGO_URL: "mongodb://mongo:27017/reaction"

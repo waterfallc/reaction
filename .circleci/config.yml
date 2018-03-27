@@ -193,6 +193,37 @@ jobs:
           name: Run Unit Tests
           command: npm run test:unit
 
+  test-perceptual-diff:
+    <<: *defaults
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: docker-cache
+      - run:
+          name: Load Docker Image
+          command: |
+            docker load < docker-cache/docker-image.tar
+      - run:
+          name: Set SHA1 env variable for Docker
+          command: export SHA1="$CIRCLE_SHA1"
+      - run:
+          name: Docker Compose Up
+          command: docker-compose up -f .circleci/docker-compose.yml
+      - run:
+          name: curl against containers
+          command: apt-get install -y curl && curl --retry 10 --retry-delay 10 -v http://localhost:3000
+      - run:
+          name: Sleep for 30 seconds to let the container get started
+          command: sleep 30
+      - run:
+          name: curl against container on port 3000
+          command: apt-get install -y curl && curl --retry 10 --retry-delay 10 -v http://localhost:3000
+      - run:
+          name: curl against container on port 4000
+          command: apt-get install -y curl && curl --retry 10 --retry-delay 10 -v http://localhost:4000
+
+
   dockerfile-lint:
     <<: *defaults
     docker:
@@ -214,6 +245,9 @@ workflows:
           requires:
             - build
       - test-unit:
+          requires:
+            - build
+      - test-perceptual-diff:
           requires:
             - build
       - eslint:
