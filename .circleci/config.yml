@@ -194,7 +194,14 @@ jobs:
           command: npm run test:unit
 
   test-perceptual-diff:
-    <<: *defaults
+    environment:
+      - DOCKER_REPOSITORY: "reactioncommerce/reaction"
+      - DOCKER_NAMESPACE: "reactioncommerce"
+      - DOCKER_NAME: "reaction"
+      - TOOL_NODE_FLAGS: "--max-old-space-size=4096"
+    working_directory: ~/reaction-app
+    machine: true
+      image: circleci/node:8-stretch
     steps:
       - checkout
       - setup_remote_docker
@@ -202,7 +209,7 @@ jobs:
           name: Set SHA1 env variable for Docker
           command: |
             export SHA1="$CIRCLE_SHA1"
-            docker-compose up -d -f .circleci/docker-compose.yml
+            docker-compose -f .circleci/docker-compose.yml up -d
       - run:
           name: curl against containers
           command: |

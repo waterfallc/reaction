@@ -2,7 +2,7 @@
 # docker-compose up -d
 
 latest:
-  container_name: reaction
+  container_name: latest
   image: reactioncommerce/reaction:latest
   links:
     - mongo
