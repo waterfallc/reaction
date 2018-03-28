@@ -204,8 +204,6 @@ jobs:
             export SHA1="$CIRCLE_SHA1"
             docker-compose up -d -f .circleci/docker-compose.yml
       - run:
-          name: Sleep for 30 seconds to let the container get started
-      - run:
           name: curl against containers
           command: |
             sleep 30
