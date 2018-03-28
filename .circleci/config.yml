@@ -200,23 +200,18 @@ jobs:
       - setup_remote_docker
       - run:
           name: Set SHA1 env variable for Docker
-          command: export SHA1="$CIRCLE_SHA1"
-      - run:
-          name: Docker Compose Up
-          command: docker-compose up -f .circleci/docker-compose.yml
-      - run:
-          name: curl against containers
-          command: apt-get install -y curl && curl --retry 10 --retry-delay 10 -v http://localhost:3000
+          command: |
+            export SHA1="$CIRCLE_SHA1"
+            docker-compose up -d -f .circleci/docker-compose.yml
       - run:
           name: Sleep for 30 seconds to let the container get started
-          command: sleep 30
       - run:
-          name: curl against container on port 3000
-          command: apt-get install -y curl && curl --retry 10 --retry-delay 10 -v http://localhost:3000
-      - run:
-          name: curl against container on port 4000
-          command: apt-get install -y curl && curl --retry 10 --retry-delay 10 -v http://localhost:4000
-
+          name: curl against containers
+          command: |
+            sleep 30
+            apt-get install -y curl
+            curl --retry 10 --retry-delay 10 -v http://localhost:3000
+            curl --retry 10 --retry-delay 10 -v http://localhost:4000
 
   dockerfile-lint:
     <<: *defaults
