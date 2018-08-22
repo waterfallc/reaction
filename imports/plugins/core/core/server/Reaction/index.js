@@ -9,7 +9,6 @@ import getRegistryDomain from "./getRegistryDomain";
 import getSlug from "./getSlug";
 import loadSettings from "./loadSettings";
 import setDomain from "./setDomain";
-import setShopName from "./setShopName";
 import * as Collections from "/lib/collections";
 import * as Schemas from "/lib/collections/schemas";
 
@@ -28,6 +27,5 @@ export default {
   Log,
   Router: {},
   Schemas,
-  setDomain,
-  setShopName
+  setDomain
 };
