@@ -47,4 +47,4 @@ sudo chmod +x /usr/local/bin/propel
 
 cd ${APP_DIR_NAME}
 RELEASE_DESCRIPTION="CircleCI build URL: ${CIRCLE_BUILD_URL}"
-propel release create --deploy --description $RELEASE_DESCRIPTION
+propel release create --deploy --descr "${RELEASE_DESCRIPTION}"

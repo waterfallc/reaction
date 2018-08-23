@@ -20,6 +20,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
+          docker_layer_caching: true
       - restore_cache:
           name: Restoring Meteor cache
           key: ${GLOBAL_CACHE_VERSION}-meteor
@@ -90,6 +91,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
+          docker_layer_caching: true
       - attach_workspace:
           at: docker-cache
       - run:
@@ -119,6 +121,7 @@ jobs:
     <<: *defaults
     steps:
       - setup_remote_docker
+          docker_layer_caching: true
       - attach_workspace:
           at: docker-cache
       - run:
@@ -259,6 +262,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
+          docker_layer_caching: true
       - run:
           name: Dockerfile Lint
           command: |
@@ -269,6 +273,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
+          docker_layer_caching: true
       - restore_cache:
           keys:
             - ${GLOBAL_CACHE_VERSION}-node-modules-{{ checksum "package.json" }}-{{ checksum "package-lock.json" }}
