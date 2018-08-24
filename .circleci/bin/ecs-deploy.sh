@@ -10,12 +10,6 @@ if [ -z "${AWS_REGION}" ]; then
         AWS_REGION=us-west-2
 fi
 
-echo Running aws s3 cp s3://${S3_PROPEL_ARTIFACTS_BUCKET}/propel-linux-amd64 ./propel
-aws s3 cp s3://${S3_PROPEL_ARTIFACTS_BUCKET}/propel-linux-amd64 ./propel
-
-sudo mv propel /usr/local/bin/propel
-sudo chmod +x /usr/local/bin/propel
-
 APP_DIR_NAME=devops/aws
 APPS=$(ls ${APP_DIR_NAME})
 
@@ -49,6 +43,12 @@ for APP in $APPS; do
 
 	echo "[default]" > ~/.aws/config
 	echo "region = ${AWS_REGION}" >> ~/.aws/config
+
+	echo Running aws s3 cp s3://${S3_PROPEL_ARTIFACTS_BUCKET}/propel-linux-amd64 ./propel
+	aws s3 cp s3://${S3_PROPEL_ARTIFACTS_BUCKET}/propel-linux-amd64 ./propel
+
+	sudo mv propel /usr/local/bin/propel
+	sudo chmod +x /usr/local/bin/propel
 
 	cd ${APP_DIR_NAME}/${APP}
 	RELEASE_DESCRIPTION="CircleCI build URL: ${CIRCLE_BUILD_URL}"
