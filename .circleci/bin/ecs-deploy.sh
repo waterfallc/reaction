@@ -10,7 +10,7 @@ if [ -z "${AWS_REGION}" ]; then
         AWS_REGION=us-west-2
 fi
 
-APP_DIR_NAME=devops/aws
+APP_DIR_NAME=devops/aws/app
 APPS=$(ls ${APP_DIR_NAME})
 
 for APP in $APPS; do
