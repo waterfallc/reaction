@@ -11,7 +11,7 @@ environment:
       dns_name: starterkit-core
       desired_task_count: 1
       min_task_count: 0
-      max_task_count: 4
+      max_task_count: 88888888
       min_healthy_percent: 100
       max_percent: 200
       alb_listener_port: 80
