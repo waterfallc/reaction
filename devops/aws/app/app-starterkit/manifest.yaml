@@ -2,7 +2,6 @@ environment:
   name: staging
   application:
     name: starterkit
-    network: core
     cluster: core
     services:
     - name: sk-core
