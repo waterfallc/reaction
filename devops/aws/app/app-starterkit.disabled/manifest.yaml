@@ -26,7 +26,7 @@ environment:
           port: 3000
           override_image_from_circleci: true
           image: reactioncommerce/reaction
-          image_tag: 443896b4373cf444e6549e7fec50640c9a8a964d
+          image_tag: 94f8e63365c03c7a67b6e626108cc30d11bd528a
           env_params:
           - name: REACTION_AUTH
           - name: REACTION_EMAIL

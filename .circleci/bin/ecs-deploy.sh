@@ -14,6 +14,10 @@ APP_DIR_NAME=devops/aws/app
 APPS=$(ls ${APP_DIR_NAME})
 
 for APP in $APPS; do
+        DISABLED=$(echo $APP | grep disabled)
+        if [ "${DISABLED}" == "${APP}" ]; then
+            continue
+        fi
 	echo "START PROCESSING APPLICATION ${APP}"
 
 	MANIFEST_FILE="${APP_DIR_NAME}/${APP}/manifest.yaml"
